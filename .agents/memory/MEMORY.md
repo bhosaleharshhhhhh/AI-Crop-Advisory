@@ -1,0 +1,1 @@
+- [Cropwise AI integration](cropwise-ai-integration.md) — Gemini access may require a server-side user secret when the managed provider is unavailable.

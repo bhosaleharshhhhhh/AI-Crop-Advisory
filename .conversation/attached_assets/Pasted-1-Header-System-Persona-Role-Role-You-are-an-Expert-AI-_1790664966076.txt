@@ -1,0 +1,248 @@
+1. Header & System Persona Role
+Role: You are an Expert AI Systems Architect, Principal Full-Stack Engineer, and UI/UX Specialist.
+Context: You have been tasked with building a production-ready, full-stack web application from scratch. You write clean, modular, and highly optimized code.
+Constraint: Do NOT leave placeholders, "TODOs", or mock implementations. You must generate the complete, working code for all frontend and backend components, database connections, and AI integrations described below.
+
+2. Core Mission Directive
+Your mission is to develop an AI-Powered Agriculture Crop Advisory Assistant. This application must securely accept user inputs (text and image), interact with the new Google Gen AI SDK (@google/genai) to analyze crop data, store interactions securely in a PostgreSQL database, and present actionable, localized insights to farmers via a responsive, accessible React frontend.
+
+3. Product Goal
+Problem Statement: Farmers often struggle with crop diseases, unpredictable weather, and fluctuating market prices, which can lead to crop losses and reduced income.
+Solution: An AI-powered farming assistant that detects crop diseases from uploaded images, provides localized weather-based farming alerts, and suggests optimal harvesting times and market selling strategies to maximize income.
+
+4. Mandatory Features
+Multimodal Disease Detection: Users can upload images of affected crops; the system uses Vision AI to identify diseases, assess severity, and provide treatment remedies.
+
+Weather-Based Advisory: Contextual alerts based on user location and crop type to warn against frost, drought, or excessive rain.
+
+Market Price & Timing Insights: AI-generated suggestions on the best time to harvest and sell specific crops based on simulated market trends and seasonality.
+
+Historical Dashboard: A user-specific dashboard that tracks past scans, advisories, and saved insights.
+
+Structured AI Outputs: All AI responses must be strictly validated against predefined JSON schemas.
+
+5. Technology Requirements
+You MUST exclusively use the following technology stack:
+
+Frontend: React.js (Vite), Tailwind CSS (for styling), Lucide React (for icons).
+
+Backend: Node.js, Express.js.
+
+Database: Replit Postgres (PostgreSQL).
+
+AI SDK: @google/genai (The newest official Google Gen AI SDK. Do NOT use the legacy @google/generative-ai SDK).
+
+Data Validation: Zod (for both API request validation and AI output schema validation).
+
+File Handling: Multer (for handling image uploads in memory).
+
+6. Application Pages (Routes)
+/ - Landing Page (Hero section, features overview, CTA).
+
+/dashboard - User Dashboard (Overview of recent activities, weather widget).
+
+/disease-scanner - Image upload interface for crop disease detection.
+
+/market-insights - Form to input crop type and region for selling advice.
+
+/history - Tabular view of past AI advisories and scan results.
+
+7. User Flow
+Onboarding: User visits the app and enters basic farm profile data (Region, Primary Crop).
+
+Disease Scanning: User navigates to the Scanner, uploads a photo of a sick leaf, and clicks "Analyze". The backend processes the image via Gemini Vision, returns a structured diagnosis, and saves the record.
+
+Market Advisory: User requests selling advice for "Tomatoes in Maharashtra". The AI generates an economic advisory.
+
+Review: User views the Dashboard to see a summary of weather alerts and past diagnoses.
+
+8. Target Domains & Categorization
+Agriculture & Agronomy: Crop lifecycle, soil health, and plant pathology.
+
+Agrometeorology: Impact of weather conditions on crop yield.
+
+Agribusiness Economics: Market demand, supply chain constraints, and seasonal pricing models.
+
+9. Form & Advisory Configuration
+Disease Scanner Form:
+
+Input: image (File, max 5MB, JPEG/PNG/WebP), cropType (String).
+
+Output: Disease Name, Confidence Score, Symptoms, Organic Remedy, Chemical Remedy.
+
+Market & Weather Advisory Form:
+
+Input: cropType (String), location (String), currentWeather (String/Dropdown).
+
+Output: Weather Risks, Harvest Recommendation, Market Selling Strategy.
+
+10. Database Schema (Production SQL for PostgreSQL)
+Execute the following schema to establish the database structure:
+
+SQL
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    farm_location VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE disease_scans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    crop_type VARCHAR(100) NOT NULL,
+    disease_name VARCHAR(255) NOT NULL,
+    confidence_score DECIMAL(5,2),
+    remedy TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE market_advisories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    crop_type VARCHAR(100) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    advisory_content JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+11. Row Level Security (RLS) / Data Isolation Rules
+Ensure that API endpoints strictly filter database queries by the authenticated user's user_id.
+
+A user must never be able to GET, PUT, or DELETE records belonging to another user_id.
+(Note: Implement logic at the Express controller level by appending WHERE user_id = $1 to all user-data queries).
+
+12. Backend API Routes
+GET /api/health - System health check.
+
+POST /api/users/profile - Create/update user farm profile.
+
+POST /api/ai/scan-disease - Middleware: Multer (memoryStorage). Takes image and crop type, calls Gemini API, saves to disease_scans, returns JSON.
+
+POST /api/ai/market-advisory - Takes crop and location, calls Gemini API for market insights, saves to market_advisories, returns JSON.
+
+GET /api/history/:userId - Fetches combined history from database.
+
+13. Gemini SDK Setup & Server-Side Security
+Initialization:
+
+JavaScript
+import { GoogleGenAI } from '@google/genai';
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+Security: The API key MUST remain entirely on the Node.js backend. The frontend must never import the AI SDK or hold the API key.
+
+Model Selection: Use gemini-2.5-flash as the default model for both text and multimodal (image) tasks.
+
+14. AI System Prompt
+Inject this system instruction into all Gemini API calls:
+
+"You are an expert Agronomist, Plant Pathologist, and Agricultural Economist. Your goal is to assist farmers by accurately diagnosing crop diseases from images, assessing weather risks, and providing actionable market strategies. Your advice must be practical, safe, cost-effective, and highly structured. Always prioritize organic and accessible remedies first before suggesting chemical interventions."
+
+15. Detailed AI Prompts (with required JSON Schemas)
+For the Disease Scan, use this prompt structure and enforce responseSchema:
+Prompt: "Analyze the uploaded image of a {cropType}. Identify any diseases, pests, or deficiencies visible. Provide a structured diagnosis."
+Schema (responseSchema for @google/genai):
+
+JSON
+{
+  "type": "OBJECT",
+  "properties": {
+    "diseaseName": { "type": "STRING", "description": "Name of the disease or 'Healthy'" },
+    "confidenceScore": { "type": "NUMBER", "description": "Confidence out of 100" },
+    "symptoms": { "type": "ARRAY", "items": { "type": "STRING" } },
+    "organicRemedy": { "type": "STRING" },
+    "chemicalRemedy": { "type": "STRING" }
+  },
+  "required": ["diseaseName", "confidenceScore", "symptoms", "organicRemedy", "chemicalRemedy"]
+}
+(Ensure responseMimeType: "application/json" is set in the API call).
+
+16. Zod Validation Requirements
+Implement Zod schemas in a shared schemas.js or within the backend controllers to validate incoming client requests:
+
+JavaScript
+import { z } from 'zod';
+
+export const MarketAdvisorySchema = z.object({
+  cropType: z.string().min(2, "Crop type is required"),
+  location: z.string().min(2, "Location is required"),
+  currentWeather: z.string().optional()
+});
+
+// Implement similar schemas for User Profile and Scan requests (validating file presence).
+17. Frontend Components List
+Create the following React components using Tailwind CSS:
+
+Layout: Main wrapper with Sidebar/Navbar navigation.
+
+ImageUploader: Drag-and-drop zone with image preview.
+
+DiseaseReportCard: Displays the JSON response from the scan beautifully (with progress bars for confidence score).
+
+MarketInsightsDashboard: Grid layout showing best harvest times and market trends.
+
+HistoryTable: A responsive data table showing previous queries and diagnoses.
+
+LoadingSpinner: A visually appealing loading state for AI generation delays.
+
+18. Security Requirements
+File Validation: Multer must reject files larger than 5MB and any non-image MIME types.
+
+Input Sanitization: Prevent SQL injection using parameterized queries ($1, $2) in Replit Postgres.
+
+CORS: Configure Express to only accept requests from the deployed frontend domain.
+
+Error Handling: Never leak stack traces to the frontend. Return standardized { error: "Message" } payloads.
+
+19. Environment Variables Template
+Provide a .env.example file in the root:
+
+Code snippet
+PORT=5000
+GEMINI_API_KEY=your_google_gen_ai_api_key
+DATABASE_URL=postgres://user:password@host:port/database
+VITE_API_BASE_URL=http://localhost:5000/api
+20. Suggested Folder Structure
+Plaintext
+/
+├── client/                 # React Frontend (Vite)
+│   ├── src/
+│   │   ├── components/     # UI Components
+│   │   ├── pages/          # Route Pages
+│   │   ├── services/       # API calling functions
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   └── package.json
+├── server/                 # Node.js Backend
+│   ├── controllers/        # Route logic & AI integration
+│   ├── routes/             # Express routes
+│   ├── db/                 # Postgres connection & queries
+│   ├── index.js            # Entry point
+│   └── package.json
+├── .env
+└── package.json            # Root for concurrently running both
+21. Implementation Phases
+Phase 1: Project Scaffolding & DB Setup: Initialize Vite, Express, and execute SQL schema.
+
+Phase 2: Backend & AI Integration: Implement Multer, connect to Replit Postgres, and set up @google/genai endpoints with JSON schema enforcement.
+
+Phase 3: Frontend Development: Build the React UI, form state management, and API connection hooks.
+
+Phase 4: State & Data Flow: Connect frontend components to the backend APIs, handle loading states, and display AI data.
+
+Phase 5: Polish: Add Tailwind styling, error toasts, and ensure responsive design.
+
+22. Acceptance Criteria
+The application starts up cleanly with a single command (e.g., npm run dev).
+
+A user can successfully upload an image of a leaf.
+
+The backend successfully parses the image and queries gemini-2.5-flash.
+
+The AI returns a strictly formatted JSON object adhering to the schema.
+
+The database successfully saves the query and result.
+
+The frontend displays the remedies clearly without crashing.
+
+23. Final Instruction to Coding Agent
+Begin immediately. Do not ask for further clarification unless completely blocked. Start by executing Phase 1: set up the directory structure, create the package.json files, and initialize the Express server and React application. Provide the full code for each file, ensuring all requirements, especially the new @google/genai SDK implementation and Zod validation, are perfectly met. Generate the code now.

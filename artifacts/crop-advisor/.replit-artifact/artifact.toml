@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Cropwise Advisory"
+description = "A full-stack AI agriculture assistant for farmers to diagnose crop issues from photos, receive localized weather and market guidance, and review their advisory history."
+version = "1.0.0"
+id = "artifacts/crop-advisor"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21488
+
+[services.development]
+run = "pnpm --filter @workspace/crop-advisor run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/crop-advisor", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/crop-advisor/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21488"
+BASE_PATH = "/"

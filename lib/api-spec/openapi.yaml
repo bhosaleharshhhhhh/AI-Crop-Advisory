@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Cropwise Advisory API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: profile
+    description: Farmer profile operations
+  - name: advisory
+    description: AI-powered agriculture advisory operations
+  - name: history
+    description: Saved user activity
 paths:
   /healthz:
     get:
@@ -24,7 +30,166 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: System health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /users/profile:
+    post:
+      operationId: upsertProfile
+      tags: [profile]
+      summary: Create or update a farmer profile
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "200":
+          description: Saved profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [advisory]
+      summary: Get a user's dashboard summary
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /ai/scan-disease:
+    post:
+      operationId: scanDisease
+      tags: [advisory]
+      summary: Analyze a crop image for disease or plant stress
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DiseaseScanInput"
+      responses:
+        "200":
+          description: Structured crop diagnosis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiseaseScan"
+        "400":
+          description: Invalid image or crop type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /ai/market-advisory:
+    post:
+      operationId: createMarketAdvisory
+      tags: [advisory]
+      summary: Generate a localized market and harvest advisory
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketAdvisoryInput"
+      responses:
+        "200":
+          description: Structured market advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketAdvisory"
+        "400":
+          description: Invalid advisory request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /insights:
+    post:
+      operationId: saveInsight
+      tags: [history]
+      summary: Save a diagnosis or market advisory for later
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedInsightInput"
+      responses:
+        "200":
+          description: Saved insight
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedInsight"
+        "400":
+          description: Invalid insight
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /history/{userId}:
+    get:
+      operationId: getHistory
+      tags: [history]
+      summary: Get a user's scans and advisories
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Combined activity history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/History"
 components:
+  parameters:
+    UserId:
+      name: x-user-id
+      in: header
+      required: true
+      description: Current user's UUID from the client session
+      schema:
+        type: string
+        format: uuid
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +198,210 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    ProfileInput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        farmLocation:
+          type: string
+          minLength: 2
+        primaryCrop:
+          type: string
+          minLength: 2
+      required: [id, email, farmLocation, primaryCrop]
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        farmLocation:
+          type: ["string", "null"]
+        primaryCrop:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, farmLocation, primaryCrop, createdAt]
+    DiseaseScanInput:
+      type: object
+      properties:
+        cropType:
+          type: string
+          minLength: 2
+        image:
+          type: string
+          format: binary
+      required: [cropType, image]
+    DiseaseScan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cropType:
+          type: string
+        diseaseName:
+          type: string
+        confidenceScore:
+          type: number
+        symptoms:
+          type: array
+          items:
+            type: string
+        organicRemedy:
+          type: string
+        chemicalRemedy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, cropType, diseaseName, confidenceScore, symptoms, organicRemedy, chemicalRemedy, createdAt]
+    MarketAdvisoryInput:
+      type: object
+      properties:
+        cropType:
+          type: string
+          minLength: 2
+        location:
+          type: string
+          minLength: 2
+        currentWeather:
+          type: string
+      required: [cropType, location]
+    MarketAdvisory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cropType:
+          type: string
+        location:
+          type: string
+        weatherRisks:
+          type: array
+          items:
+            type: string
+        harvestRecommendation:
+          type: string
+        marketSellingStrategy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, cropType, location, weatherRisks, harvestRecommendation, marketSellingStrategy, createdAt]
+    Dashboard:
+      type: object
+      properties:
+        profile:
+          anyOf:
+            - $ref: "#/components/schemas/UserProfile"
+            - type: "null"
+        weather:
+          $ref: "#/components/schemas/WeatherSnapshot"
+        recentScans:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiseaseScan"
+        recentAdvisories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketAdvisory"
+        stats:
+          $ref: "#/components/schemas/DashboardStats"
+      required: [profile, weather, recentScans, recentAdvisories, stats]
+    WeatherSnapshot:
+      type: object
+      properties:
+        location:
+          type: string
+        temperature:
+          type: number
+        condition:
+          type: string
+        high:
+          type: number
+        low:
+          type: number
+        advisory:
+          type: string
+        riskLevel:
+          type: string
+          enum: [low, moderate, high]
+      required: [location, temperature, condition, high, low, advisory, riskLevel]
+    DashboardStats:
+      type: object
+      properties:
+        totalScans:
+          type: integer
+        totalAdvisories:
+          type: integer
+        savedInsights:
+          type: integer
+        activeAlerts:
+          type: integer
+      required: [totalScans, totalAdvisories, savedInsights, activeAlerts]
+    History:
+      type: object
+      properties:
+        scans:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiseaseScan"
+        advisories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketAdvisory"
+        savedInsights:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedInsight"
+      required: [scans, advisories, savedInsights]
+    SavedInsightInput:
+      type: object
+      properties:
+        sourceType:
+          type: string
+          enum: [scan, advisory]
+        sourceId:
+          type: string
+          format: uuid
+        label:
+          type: string
+          minLength: 1
+      required: [sourceType, sourceId, label]
+    SavedInsight:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sourceType:
+          type: string
+          enum: [scan, advisory]
+        sourceId:
+          type: string
+          format: uuid
+        label:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sourceType, sourceId, label, createdAt]
 
